@@ -1,13 +1,17 @@
+```python
 from flask import Flask, render_template, request
 import requests
 from dotenv import load_dotenv
 import os
 from datetime import datetime
 
+# Load environment variables
 load_dotenv()
 
+# Create Flask application
 app = Flask(__name__)
 
+# Get OpenWeather API key
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 
@@ -18,18 +22,22 @@ def home():
     forecast = None
     error = None
 
+    # Handle form submission
     if request.method == "POST":
 
         city = request.form.get("city", "").strip()
 
+        # Check city name
         if not city:
             error = "Please enter a city name."
 
+        # Check API key
         elif not API_KEY:
-            error = "API key is missing. Please check your .env file."
+            error = "API key is missing. Please check your environment variables."
 
         else:
 
+            # OpenWeather API URLs
             weather_url = (
                 "https://api.openweathermap.org/data/2.5/weather"
                 f"?q={city}&appid={API_KEY}&units=metric"
@@ -42,17 +50,21 @@ def home():
 
             try:
 
+                # Get current weather
                 weather_response = requests.get(
                     weather_url,
                     timeout=10
                 )
 
+                # Get forecast
                 forecast_response = requests.get(
                     forecast_url,
                     timeout=10
                 )
 
-                # ---------------- CURRENT WEATHER ----------------
+                # --------------------------------
+                # CURRENT WEATHER
+                # --------------------------------
 
                 if weather_response.status_code == 200:
 
@@ -76,7 +88,9 @@ def home():
 
                 elif weather_response.status_code == 401:
 
-                    error = "API key is invalid or not activated yet."
+                    error = (
+                        "API key is invalid or not activated yet."
+                    )
 
                 elif weather_response.status_code == 404:
 
@@ -92,7 +106,9 @@ def home():
                         "Please try again."
                     )
 
-                # ---------------- 5 DAY FORECAST ----------------
+                # --------------------------------
+                # 5 DAY FORECAST
+                # --------------------------------
 
                 if (
                     weather_response.status_code == 200
@@ -105,15 +121,18 @@ def home():
 
                     for item in forecast_data["list"]:
 
+                        # Convert timestamp to date/time
                         date_time = datetime.fromtimestamp(
                             item["dt"]
                         )
 
-                        date_key = date_time.strftime("%Y-%m-%d")
+                        date_key = date_time.strftime(
+                            "%Y-%m-%d"
+                        )
 
                         hour = date_time.hour
 
-                        # Calculate how close the forecast is to 12 PM
+                        # Find forecast closest to 12 PM
                         difference = abs(hour - 12)
 
                         if (
@@ -147,12 +166,12 @@ def home():
                                 "wind": item["wind"]["speed"],
                             }
 
-                    # Remove today's data if present
+                    # Convert dictionary to list
                     forecast_list = list(
                         daily_data.values()
                     )
 
-                    # Sort by date
+                    # Sort forecast by date
                     forecast_list.sort(
                         key=lambda x: datetime.strptime(
                             x["date"],
@@ -160,6 +179,7 @@ def home():
                         )
                     )
 
+                    # Display first 5 days
                     forecast = forecast_list[:5]
 
                 elif weather_response.status_code == 200:
@@ -172,9 +192,11 @@ def home():
             except requests.exceptions.RequestException:
 
                 error = (
-                    "Could not connect to the weather service."
+                    "Could not connect to the weather service. "
+                    "Please try again later."
                 )
 
+    # Send data to HTML template
     return render_template(
         "index.html",
         weather=weather,
@@ -183,5 +205,20 @@ def home():
     )
 
 
+# --------------------------------
+# RENDER / PRODUCTION SERVER
+# --------------------------------
+
 if __name__ == "__main__":
-    app.run(debug=True)
+
+    # Render provides the PORT environment variable
+    port = int(
+        os.environ.get("PORT", 5000)
+    )
+
+    # Listen on all network interfaces
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
+```
